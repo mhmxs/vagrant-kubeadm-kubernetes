@@ -1,5 +1,5 @@
 
-# Vagrantfile and Scripts to Automate Kubernetes Setup using Kubeadm [Practice Environment for CKA/CKAD and CKS Exams]
+# Vagrantfile and Scripts to Automate Kubernetes Setup using Kubeadm [Development environment to change and test rapidly on multiple nodes]
 
 [WIP] The main purpose of this repositry to make it easy to test your local Kubernetes change on a distributed environoment.
 
