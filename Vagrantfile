@@ -1,6 +1,7 @@
-NUM_WORKER_NODES=2
+NUM_WORKER_NODES=1
 IP_NW="192.168.56."
 IP_START=10
+SOURCE=/vagrant/github.com/kubernetes/kubernetes
 
 Vagrant.configure("2") do |config|
   config.vm.provision "shell", env: {"IP_NW" => IP_NW, "IP_START" => IP_START}, inline: <<-SHELL
@@ -19,10 +20,10 @@ Vagrant.configure("2") do |config|
     master.vm.network "private_network", ip: IP_NW + "#{IP_START}"
     master.vm.provider "virtualbox" do |vb|
         vb.memory = 4048
-        vb.cpus = 2
+        vb.cpus = 4
     end
-    master.vm.provision "shell", path: "scripts/common.sh"
-    master.vm.provision "shell", path: "scripts/master.sh"
+    master.vm.provision "shell", path: "scripts/common.sh", env: {"MASTER" => true, "SOURCE" => SOURCE}
+    # master.vm.provision "shell", path: "scripts/master.sh"
   end
 
   (1..NUM_WORKER_NODES).each do |i|
@@ -32,10 +33,10 @@ Vagrant.configure("2") do |config|
     node.vm.network "private_network", ip: IP_NW + "#{IP_START + i}"
     node.vm.provider "virtualbox" do |vb|
         vb.memory = 2048
-        vb.cpus = 1
+        vb.cpus = 2
     end
-    node.vm.provision "shell", path: "scripts/common.sh"
-    node.vm.provision "shell", path: "scripts/node.sh"
+    node.vm.provision "shell", path: "scripts/common.sh", env: {"MASTER" => "", "SOURCE" => SOURCE}
+    # node.vm.provision "shell", path: "scripts/node.sh"
   end
 
   end

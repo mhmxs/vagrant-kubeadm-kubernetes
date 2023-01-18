@@ -1,15 +1,9 @@
 
 # Vagrantfile and Scripts to Automate Kubernetes Setup using Kubeadm [Practice Environment for CKA/CKAD and CKS Exams]
 
-## Documentation
+[WIP] The main purpose of this repositry to make it easy to test your local Kubernetes change on a distributed environoment.
 
-Current k8s version for CKA, CKAD and CKS exam: 1.24
-
-Refer this link for documentation: https://devopscube.com/kubernetes-cluster-vagrant/
-
-## 🚀 CKA, CKAD, CKS or KCNA Coupon Codes
-
-If you are preparing for CKA, CKAD, CKS, or KCNA exam, get **$60 discount today** using code **DCUBEOFFER** at https://kube.promo/latest. It is a limited-time offer. Or Check out [Linux Foundation coupon](https://scriptcrunch.com/linux-foundation-coupon/) page for the latest voucher codes.
+To change source directory please edit `SOURCE` at `Vagrantfile`.
 
 ## Prerequisites
 
@@ -36,39 +30,33 @@ https://discuss.hashicorp.com/t/vagrant-2-2-18-osx-11-6-cannot-create-private-ne
 To provision the cluster, execute the following commands.
 
 ```shell
-git clone https://github.com/scriptcamp/vagrant-kubeadm-kubernetes.git
+git clone https://github.com/mhmxs/vagrant-kubeadm-kubernetes.git
 cd vagrant-kubeadm-kubernetes
 vagrant up
 ```
 
-## Set Kubeconfig file variable
+## Start Kubernetes,
+
+First step is to compile Kubernetes on your host machine (Build system isn't included)
 
 ```shell
-cd vagrant-kubeadm-kubernetes
-cd configs
-export KUBECONFIG=$(pwd)/config
+(cd kubernetes-git-repository ; make all)
+vagrant ssh master
+start
 ```
 
-or you can copy the config file to .kube directory.
+## Generate Join config,
 
 ```shell
-cp config ~/.kube/
+vagrant ssh master
+join
 ```
 
-## Kubernetes Dashboard URL
+## Join member,
 
 ```shell
-http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/#/overview?namespace=kubernetes-dashboard
-```
-
-## Kubernetes login token
-
-Vagrant up will create the admin user token and saves in the configs directory.
-
-```shell
-cd vagrant-kubeadm-kubernetes
-cd configs
-cat token
+vagrant ssh node01
+member
 ```
 
 ## To shutdown the cluster,
@@ -88,4 +76,3 @@ vagrant up
 ```shell
 vagrant destroy -f
 ```
-
