@@ -33,7 +33,7 @@ sudo sysctl --system
 
 sudo apt-get update -y
 
-sudo apt-get install -y apt-transport-https ca-certificates curl jq socat conntrack runc
+sudo apt-get install -y apt-transport-https ca-certificates curl jq socat conntrack runc net-tools
 
 wget https://github.com/containerd/containerd/releases/download/v1.6.8/containerd-1.6.8-linux-amd64.tar.gz
 sudo tar Czxvf /usr/local containerd-1.6.8-linux-amd64.tar.gz
