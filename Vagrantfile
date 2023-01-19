@@ -1,7 +1,7 @@
 NUM_WORKER_NODES=1
 IP_NW="192.168.56."
 IP_START=10
-SOURCE=/vagrant/github.com/kubernetes/kubernetes
+SOURCE="/vagrant/github.com/kubernetes/kubernetes"
 
 Vagrant.configure("2") do |config|
   config.vm.provision "shell", env: {"IP_NW" => IP_NW, "IP_START" => IP_START}, inline: <<-SHELL
