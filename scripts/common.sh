@@ -155,6 +155,8 @@ EOFI
     kubectl create cm -n kube-system --from-file=/var/run/kubernetes/ClusterConfiguration kubeadm-config
 
     kubeadm token create --print-join-command > /var/run/kubernetes/join.sh
+    
+    exportfs -a
 }
 
 member() {
