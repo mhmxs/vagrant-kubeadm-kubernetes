@@ -46,11 +46,6 @@ sudo systemctl enable --now containerd
 wget https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.26.0/crictl-v1.26.0-linux-amd64.tar.gz
 sudo tar zxvf crictl-v1.26.0-linux-amd64.tar.gz -C /usr/local/bin
 
-local_ip="$(ip --json a s | jq -r '.[] | if .ifname == "eth1" then .addr_info[] | if .family == "inet" then .local else empty end else empty end')"
-cat > /etc/default/kubelet << EOF
-KUBELET_EXTRA_ARGS=--node-ip=${local_ip}
-EOF
-
 if [ -n ${MASTER} ]; then
     mkdir -p /var/run/kubernetes
     sudo apt install -y nfs-kernel-server
@@ -58,7 +53,12 @@ if [ -n ${MASTER} ]; then
 /var/run/kubernetes  192.168.56.0/24(rw,sync,no_subtree_check,all_squash,insecure)
 EOF
     sudo exportfs -a
-    sudo systemctl restart nfs-kernel-server
+    sudo systemctl restart nfs-kernel-server make
+
+    curl -L https://go.dev/dl/go1.19.5.linux-amd64.tar.gz | sudo tar xz -C /opt
+
+    curl -L https://github.com/cloudflare/cfssl/releases/download/v1.6.3/cfssl-certinfo_1.6.3_linux_amd64 | sudo tee /usr/local/bin/cfssl 1>/dev/null
+    sudo chmod +x /usr/local/bin/cfssl
 else
     sudo apt install -y nfs-common
 fi
@@ -77,7 +77,10 @@ export ALLOW_PRIVILEGED=1
 export API_HOST=192.168.56.10
 export KUBE_CONTROLLERS="*,bootstrapsigner,tokencleaner"
 export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
-export PATH=${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
+export WHAT="cmd/kube-proxy cmd/kube-apiserver cmd/kube-controller-manager cmd/kubelet cmd/kubeadm cmd/kube-scheduler cmd/kubectl cmd/kubectl-convert"
+export GOPATH=/vagrant/github.com/kubernetes/kubernetes
+export GOROOT=/opt/go
+export PATH=/opt/go/bin:${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
 
 sudo() {
     echo \$@
@@ -275,8 +278,8 @@ ExecStart=/vagrant/github.com/kubernetes/kubernetes/_output/local/bin/linux/amd6
 --pod-cidr 10.88.${NODE}.0/16 \\
 --register-node=true \\
 --v=3 \\
---bootstrap-kubeconfig=/var/run/kubernetes/kubelet.kubeconfig \\
---kubeconfig=/var/run/kubernetes/kubelet.kubeconfig \\
+--bootstrap-kubeconfig=/var/run/kubernetes/admin.kubeconfig \\
+--kubeconfig=/var/run/kubernetes/admin.kubeconfig \\
 --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock \\
 --client-ca-file=/var/run/kubernetes/client-ca.crt \\
 --config=/var/run/kubernetes/kubelet.yaml
@@ -289,8 +292,6 @@ WantedBy=multi-user.target
 EOFI
 
   systemctl daemon-reload
-
-  mkdir -p /var/lib/kubelet/pki
 
   sh /var/run/kubernetes/join.sh
 }

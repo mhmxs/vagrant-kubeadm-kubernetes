@@ -24,7 +24,6 @@ Vagrant.configure("2") do |config|
         vb.cpus = 4
     end
     master.vm.provision "shell", path: "scripts/common.sh", env: {"MASTER" => true, "SOURCE" => SOURCE, "NODE" => 0, "KUBE_VERSION" => KUBE_VERSION}
-    # master.vm.provision "shell", path: "scripts/master.sh"
   end
 
   (1..NUM_WORKER_NODES).each do |i|
@@ -37,7 +36,6 @@ Vagrant.configure("2") do |config|
         vb.cpus = 2
     end
     node.vm.provision "shell", path: "scripts/common.sh", env: {"MASTER" => "", "SOURCE" => SOURCE, "NODE" => i, "KUBE_VERSION" => KUBE_VERSION}
-    # node.vm.provision "shell", path: "scripts/node.sh"
   end
 
   end

@@ -1,11 +1,13 @@
 
 # Vagrantfile and Scripts to Automate Kubernetes Setup using Kubeadm [Development environment to change and test rapidly on multiple nodes]
 
-[WIP] The main purpose of this repositry to make it easy to test your local Kubernetes change on a distributed environoment.
+The main purpose of this repositry to make it easy to test your local Kubernetes change on a distributed environoment.
 
 To change source directory please edit `SOURCE` at `Vagrantfile`.
 
 Directory `/var/run/kubernetes` is a shared directory on master node, and contains all the configs.
+
+Network driver doesn't included! [WIP]
 
 ## Prerequisites
 
@@ -39,11 +41,35 @@ vagrant up
 
 ## Start Kubernetes,
 
-First step is to compile Kubernetes on your host machine (Build system isn't included)
+Initial step is to apply this patch on your Kubernetes source:
+
+```diff
+diff --git a/hack/local-up-cluster.sh b/hack/local-up-cluster.sh
+index 16e8ed9a1cf..f037aa9edbe 100755
+--- a/hack/local-up-cluster.sh
++++ b/hack/local-up-cluster.sh
+@@ -548,6 +548,7 @@ EOF
+       "${node_port_range}" \
+       --v="${LOG_LEVEL}" \
+       --vmodule="${LOG_SPEC}" \
++      --enable-bootstrap-token-auth \
+       --audit-policy-file="${AUDIT_POLICY_FILE}" \
+       --audit-log-path="${LOG_DIR}/kube-apiserver-audit.log" \
+       --authorization-webhook-config-file="${AUTHORIZATION_WEBHOOK_CONFIG_FILE}" \
+```
+
+Next step is to compile Kubernetes on your host machine or in the VM (should be slow).
 
 ```shell
 (cd kubernetes-git-repository ; make all)
 vagrant ssh master
+start
+```
+ or
+
+```shell
+vagrant ssh master
+TMPDIR=/tmp make all
 start
 ```
 
