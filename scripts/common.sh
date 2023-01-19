@@ -72,7 +72,7 @@ alias k=kubectl
 export ETCD_HOST=192.168.56.10
 export ALLOW_PRIVILEGED=1
 export API_HOST=192.168.56.10
-export KUBE_CONTROLLERS="*,bootstrapsigner"
+export KUBE_CONTROLLERS="*,bootstrapsigner,tokencleaner"
 export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
 export PATH=$SOURCE/third_party:$SOURCE/third_party/etcd:$SOURCE/_output/local/bin/linux/amd64:$PATH
 
@@ -114,6 +114,35 @@ rules:
   - configmaps
   verbs:
   - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kubeadm:bootstrap-signer-kubeadm-config
+  namespace: kube-system
+rules:
+- apiGroups:
+  - ''
+  resourceNames:
+  - kubeadm-config
+  - kube-proxy
+  - kubelet-config
+  resources:
+  - configmaps
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeadm:bootstrap-signer-kubeadm-config
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - nodes
+  verbs:
+  - '*'
 EOFI
 
     cat <<EOFI > /var/run/kubernetes/kubeconfig
@@ -131,6 +160,14 @@ users: []
 EOFI
     kubectl delete cm -n kube-public cluster-info |:
     kubectl create cm -n kube-public --from-file=/var/run/kubernetes/kubeconfig cluster-info
+
+    cp -f /tmp/local-up-cluster.sh.nLwmLv/kube-proxy.yaml /tmp/local-up-cluster.sh.nLwmLv/config.conf
+    kubectl delete cm -n kube-system kube-proxy |:
+    kubectl create cm -n kube-system --from-file=/tmp/local-up-cluster.sh.nLwmLv/config.conf kube-proxy
+
+    cp -f /tmp/local-up-cluster.sh.nLwmLv/kubelet.yaml /tmp/local-up-cluster.sh.nLwmLv/kubelet
+    kubectl delete cm -n kube-system kubelet-config |:
+    kubectl create cm -n kube-system --from-file=/tmp/local-up-cluster.sh.nLwmLv/kubelet kubelet-config
 
     cat <<EOFI > /var/run/kubernetes/ClusterConfiguration
 apiServer:
@@ -155,7 +192,38 @@ EOFI
     kubectl create cm -n kube-system --from-file=/var/run/kubernetes/ClusterConfiguration kubeadm-config
 
     kubeadm token create --print-join-command > /var/run/kubernetes/join.sh
-    
+
+    token_id="\$(cat /var/run/kubernetes/join.sh | awk '{print $5}' | cut -d. -f1)"
+
+    cat <<EOFI | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubeadm:bootstrap-signer-kubeadm-config
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubeadm:bootstrap-signer-kubeadm-config
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: system:bootstrap:\${token_id}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubeadm:bootstrap-signer-kubeadm-config
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeadm:bootstrap-signer-kubeadm-config
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: system:bootstrap:\${token_id}
+EOFI
+
     exportfs -a
 }
 
