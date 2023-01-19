@@ -1,6 +1,7 @@
 NUM_WORKER_NODES=1
 IP_NW="192.168.56."
 IP_START=10
+KUBE_VERSION="1.27.0"
 SOURCE="/vagrant/github.com/kubernetes/kubernetes"
 
 Vagrant.configure("2") do |config|
@@ -22,7 +23,7 @@ Vagrant.configure("2") do |config|
         vb.memory = 4048
         vb.cpus = 4
     end
-    master.vm.provision "shell", path: "scripts/common.sh", env: {"MASTER" => true, "SOURCE" => SOURCE}
+    master.vm.provision "shell", path: "scripts/common.sh", env: {"MASTER" => true, "SOURCE" => SOURCE, "NODE" => 0, "KUBE_VERSION" => KUBE_VERSION}
     # master.vm.provision "shell", path: "scripts/master.sh"
   end
 
@@ -35,7 +36,7 @@ Vagrant.configure("2") do |config|
         vb.memory = 2048
         vb.cpus = 2
     end
-    node.vm.provision "shell", path: "scripts/common.sh", env: {"MASTER" => "", "SOURCE" => SOURCE}
+    node.vm.provision "shell", path: "scripts/common.sh", env: {"MASTER" => "", "SOURCE" => SOURCE, "NODE" => i, "KUBE_VERSION" => KUBE_VERSION}
     # node.vm.provision "shell", path: "scripts/node.sh"
   end
 

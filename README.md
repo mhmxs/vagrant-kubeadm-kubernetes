@@ -5,6 +5,8 @@
 
 To change source directory please edit `SOURCE` at `Vagrantfile`.
 
+Directory `/var/run/kubernetes` is a shared directory on master node, and contains all the configs.
+
 ## Prerequisites
 
 1. Working Vagrant setup
