@@ -231,6 +231,27 @@ member() {
     mkdir -p /etc/master; mount | grep /etc/master 1>/dev/null || mount 192.168.56.10:/tmp /etc/master
     mkdir -p /var/run/kubernetes ; mount | grep /var/run/kubernetes 1>/dev/null || mount 192.168.56.10:/var/run/kubernetes /var/run/kubernetes
 
+    if ! [[ -f /etc/systemd/system/kubelet.service ]]; then
+      cat <<EOFI > /etc/systemd/system/kubelet.service
+[Unit]
+Description=kubelet: The Kubernetes Node Agent
+Documentation=https://kubernetes.io/docs/home/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/vagrant/github.com/kubernetes/kubernetes/_output/local/bin/linux/amd64/kubelet
+Restart=always
+StartLimitInterval=0
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOFI
+
+  systemctl daemon-reload
+fi
+
     sh /var/run/kubernetes/join.sh
 }
 
