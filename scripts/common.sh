@@ -48,12 +48,12 @@ sudo tar zxvf crictl-v1.26.0-linux-amd64.tar.gz -C /usr/local/bin
 
 if [ -n ${MASTER} ]; then
     mkdir -p /var/run/kubernetes
-    sudo apt install -y nfs-kernel-server
+    sudo apt install -y nfs-kernel-server make
     cat <<EOF > /etc/exports
 /var/run/kubernetes  192.168.56.0/24(rw,sync,no_subtree_check,all_squash,insecure)
 EOF
     sudo exportfs -a
-    sudo systemctl restart nfs-kernel-server make
+    sudo systemctl restart nfs-kernel-server
 
     curl -L https://go.dev/dl/go1.19.5.linux-amd64.tar.gz | sudo tar xz -C /opt
 
@@ -83,7 +83,7 @@ export GOROOT=/opt/go
 export PATH=/opt/go/bin:${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
 
 sudo() {
-    echo \$@
+    \$@
 }
 
 start() {
