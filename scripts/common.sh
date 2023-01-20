@@ -23,6 +23,7 @@ sudo swapoff -a
 
 sudo modprobe overlay
 sudo modprobe br_netfilter
+echo "br_netfilter" >> /etc/modules
 
 cat <<EOF | sudo tee /etc/sysctl.d/99-kubernetes-cri.conf
 net.bridge.bridge-nf-call-iptables  = 1
@@ -55,7 +56,7 @@ EOF
     sudo exportfs -a
     sudo systemctl restart nfs-kernel-server
 
-    curl -L https://go.dev/dl/go1.19.5.linux-amd64.tar.gz | sudo tar xz -C /opt
+    # curl -L https://go.dev/dl/go1.19.5.linux-amd64.tar.gz | sudo tar xz -C /opt
 
     curl -L https://github.com/cloudflare/cfssl/releases/download/v1.6.3/cfssl-certinfo_1.6.3_linux_amd64 | sudo tee /usr/local/bin/cfssl 1>/dev/null
     sudo chmod +x /usr/local/bin/cfssl
@@ -64,12 +65,10 @@ else
 fi
 
 cat <<EOF >> /home/vagrant/.bashrc
-sudo su
+(cd ${SOURCE} ; sudo su)
 EOF
 
 cat <<EOF >> /root/.bashrc
-modprobe br_netfilter
-
 alias k=kubectl
 export NET_PLUGIN=cni
 export ETCD_HOST=192.168.56.10
@@ -91,6 +90,7 @@ start() {
 }
 
 join() {
+    # TODO master branch only, some back-port is missing here
     cp -f /tmp/\$(ls /tmp -t | grep "local-up-cluster.sh." | head -1)/* /var/run/kubernetes
 
     cat <<EOFI | kubectl apply -f -
@@ -296,5 +296,4 @@ EOFI
   sh /var/run/kubernetes/join.sh
 }
 
-cd ${SOURCE}
 EOF
