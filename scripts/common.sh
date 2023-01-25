@@ -8,7 +8,7 @@ set -euxo pipefail
 : ${KUBE_VERSION? required}
 : ${MASTER_IP? required}
 : ${MASTER_NAME? required}
-: ${POD_CIDR? required}
+: ${NODE_IP? required}
 
 apt update -y
 apt install -y apt-transport-https ca-certificates curl socat conntrack runc net-tools
@@ -63,7 +63,7 @@ else
 fi
 
 cat <<EOF >> /home/vagrant/.bashrc
-(cd ${SOURCE} ; sudo su) && exit
+(cd ${SOURCE} ; sudo su) ; exit
 EOF
 
 cat <<EOF >> /root/.bashrc
@@ -77,11 +77,7 @@ export API_CORS_ALLOWED_ORIGINS=".*"
 export KUBE_CONTROLLERS="*,bootstrapsigner,tokencleaner"
 export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
 export WHAT="cmd/kube-proxy cmd/kube-apiserver cmd/kube-controller-manager cmd/kubelet cmd/kubeadm cmd/kube-scheduler cmd/kubectl cmd/kubectl-convert"
-export POD_CIDR="${POD_CIDR}"
-export CLUSTER_CIDR="192.0.0.0/8"
-export SERVICE_CLUSTER_IP_RANGE="192.169.0.0/16"
-export FIRST_SERVICE_CLUSTER_IP="192.169.0.1"
-export KUBE_DNS_SERVER_IP="192.169.1.1"
+export POD_CIDR="10.88.0.0/16"
 export GOPATH=/vagrant/github.com/kubernetes/kubernetes
 export GOROOT=/opt/go
 export PATH=/opt/go/bin:${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
@@ -304,8 +300,8 @@ After=kube-proxy
 ExecStart=/vagrant/github.com/kubernetes/kubernetes/_output/local/bin/linux/amd64/kubelet \\
 --address=0.0.0.0 \\
 --hostname-override=$(hostname) \\
---pod-cidr=${POD_CIDR} \\
---node-ip="192.168.56.1${NODE}" \\
+--pod-cidr=\${POD_CIDR} \\
+--node-ip="${NODE_IP}" \\
 --register-node=true \\
 --v=3 \\
 --bootstrap-kubeconfig=/var/run/kubernetes/admin.kubeconfig \\

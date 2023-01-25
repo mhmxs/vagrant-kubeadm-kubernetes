@@ -24,11 +24,10 @@ Vagrant.configure("2") do |config|
     end
     master.vm.provision "shell", path: "scripts/common.sh", env: {
       "SOURCE" => SOURCE,
-      "NODE" => 0,
       "KUBE_VERSION" => KUBE_VERSION,
-      "MASTER_IP" => "192.168.56.10",
+      "MASTER_IP" => IP_NW + "#{IP_START}",
       "MASTER_NAME" => "master-node",
-      "POD_CIDR" => "192.168.0.0/16"
+      "NODE_IP" => IP_NW + "#{IP_START}"
     }
   end
 
@@ -37,16 +36,15 @@ Vagrant.configure("2") do |config|
       node.vm.hostname = "worker-node0#{i}"
       node.vm.network "private_network", ip: IP_NW + "#{IP_START + i}"
       node.vm.provider "virtualbox" do |vb|
-          vb.memory = 2048
+          vb.memory = 1024
           vb.cpus = 2
       end
       node.vm.provision "shell", path: "scripts/common.sh", env: {
         "SOURCE" => SOURCE,
-        "NODE" => i,
         "KUBE_VERSION" => KUBE_VERSION,
-        "MASTER_IP" => "192.168.56.10",
+        "MASTER_IP" => IP_NW + "#{IP_START}",
         "MASTER_NAME" => "master-node",
-        "POD_CIDR" => "192.168.0.0/16"
+        "NODE_IP" => IP_NW + "#{IP_START + i}"
       }
     end
 
