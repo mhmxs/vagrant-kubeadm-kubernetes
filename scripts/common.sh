@@ -34,42 +34,6 @@ net.bridge.bridge-nf-call-ip6tables = 1
 EOF
 sysctl --system
 
-mkdir -p /etc/cni/net.d
-  cat << EOF | tee /etc/cni/net.d/10-containerd-net.conflist
-{
-  "cniVersion": "0.4.0",
-  "name": "containerd-net",
-  "plugins": [
-    {
-      "type": "bridge",
-      "bridge": "cni0",
-      "isGateway": true,
-      "ipMasq": true,
-      "promiscMode": true,
-      "ipam": {
-        "type": "host-local",
-        "ranges": [
-          [{
-            "subnet": "${POD_CIDR}"
-          }],
-          [{
-            "subnet": "2001:4860:4860::/64"
-          }]
-        ],
-        "routes": [
-          { "dst": "0.0.0.0/0" },
-          { "dst": "::/0" }
-        ]
-      }
-    },
-    {
-      "type": "portmap",
-      "capabilities": {"portMappings": true}
-    }
-  ]
-}
-EOF
-
 wget https://github.com/containerd/containerd/releases/download/v1.6.8/containerd-1.6.8-linux-amd64.tar.gz
 tar Czxvf /usr/local containerd-1.6.8-linux-amd64.tar.gz
 wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
