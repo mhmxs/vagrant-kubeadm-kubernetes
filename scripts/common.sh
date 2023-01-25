@@ -78,6 +78,7 @@ export KUBE_CONTROLLERS="*,bootstrapsigner,tokencleaner"
 export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
 export WHAT="cmd/kube-proxy cmd/kube-apiserver cmd/kube-controller-manager cmd/kubelet cmd/kubeadm cmd/kube-scheduler cmd/kubectl cmd/kubectl-convert"
 export POD_CIDR="10.88.0.0/16"
+export SERVICE_CLUSTER_IP_RANGE="10.0.0.0/24"
 export GOPATH=/vagrant/github.com/kubernetes/kubernetes
 export GOROOT=/opt/go
 export PATH=/opt/go/bin:${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
