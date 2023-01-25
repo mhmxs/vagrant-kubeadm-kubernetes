@@ -6,77 +6,118 @@ set -euxo pipefail
 
 : ${SOURCE? required}
 : ${KUBE_VERSION? required}
+: ${MASTER_IP? required}
+: ${MASTER_NAME? required}
+: ${POD_CIDR? required}
 
-sudo systemctl disable systemd-resolved
-sudo systemctl stop systemd-resolved
+apt update -y
+apt install -y apt-transport-https ca-certificates curl socat conntrack runc net-tools
 
+systemctl disable systemd-resolved
+systemctl stop systemd-resolved
 rm -f /etc/resolv.conf
 cat <<EOF > /etc/resolv.conf
-domain mshome.net
 nameserver 1.1.1.1
 nameserver 8.8.8.8
-options edns0 trust-ad
 EOF
 
-sudo swapoff -a
+swapoff -a
 (crontab -l 2>/dev/null; echo "@reboot /sbin/swapoff -a") | crontab - || true
 
-sudo modprobe overlay
-sudo modprobe br_netfilter
+modprobe overlay
+modprobe br_netfilter
 echo "br_netfilter" >> /etc/modules
-
-cat <<EOF | sudo tee /etc/sysctl.d/99-kubernetes-cri.conf
+cat <<EOF | tee /etc/sysctl.d/99-kubernetes-cri.conf
 net.bridge.bridge-nf-call-iptables  = 1
 net.ipv4.ip_forward                 = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 EOF
+sysctl --system
 
-sudo sysctl --system
-
-sudo apt-get update -y
-
-sudo apt-get install -y apt-transport-https ca-certificates curl jq socat conntrack runc net-tools
+mkdir -p /etc/cni/net.d
+  cat << EOF | tee /etc/cni/net.d/10-containerd-net.conflist
+{
+  "cniVersion": "0.4.0",
+  "name": "containerd-net",
+  "plugins": [
+    {
+      "type": "bridge",
+      "bridge": "cni0",
+      "isGateway": true,
+      "ipMasq": true,
+      "promiscMode": true,
+      "ipam": {
+        "type": "host-local",
+        "ranges": [
+          [{
+            "subnet": "${POD_CIDR}"
+          }],
+          [{
+            "subnet": "2001:4860:4860::/64"
+          }]
+        ],
+        "routes": [
+          { "dst": "0.0.0.0/0" },
+          { "dst": "::/0" }
+        ]
+      }
+    },
+    {
+      "type": "portmap",
+      "capabilities": {"portMappings": true}
+    }
+  ]
+}
+EOF
 
 wget https://github.com/containerd/containerd/releases/download/v1.6.8/containerd-1.6.8-linux-amd64.tar.gz
-sudo tar Czxvf /usr/local containerd-1.6.8-linux-amd64.tar.gz
+tar Czxvf /usr/local containerd-1.6.8-linux-amd64.tar.gz
 wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
-sudo mv containerd.service /usr/lib/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now containerd
+mv containerd.service /usr/lib/systemd/system/
+systemctl daemon-reload
+systemctl enable --now containerd
 
 wget https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.26.0/crictl-v1.26.0-linux-amd64.tar.gz
-sudo tar zxvf crictl-v1.26.0-linux-amd64.tar.gz -C /usr/local/bin
+tar zxvf crictl-v1.26.0-linux-amd64.tar.gz -C /usr/local/bin
 
-if [ -n ${MASTER} ]; then
+if [[ $(hostname) = ${MASTER_NAME} ]]; then
     mkdir -p /var/run/kubernetes
-    sudo apt install -y nfs-kernel-server make
+    apt install -y nfs-kernel-server make
     cat <<EOF > /etc/exports
-/var/run/kubernetes  192.168.56.0/24(rw,sync,no_subtree_check,all_squash,insecure)
+/var/run/kubernetes  ${MASTER_IP}/24(rw,sync,no_subtree_check,all_squash,insecure)
 EOF
-    sudo exportfs -a
-    sudo systemctl restart nfs-kernel-server
+    exportfs -a
+    systemctl restart nfs-kernel-server
 
-    # curl -L https://go.dev/dl/go1.19.5.linux-amd64.tar.gz | sudo tar xz -C /opt
+    curl -Lo /usr/local/bin/cfssl https://github.com/cloudflare/cfssl/releases/download/v1.5.0/cfssl_1.5.0_linux_amd64
+    chmod +x /usr/local/bin/cfssl
 
-    curl -L https://github.com/cloudflare/cfssl/releases/download/v1.6.3/cfssl-certinfo_1.6.3_linux_amd64 | sudo tee /usr/local/bin/cfssl 1>/dev/null
-    sudo chmod +x /usr/local/bin/cfssl
+    curl -Lo /usr/local/bin/cfssljson https://github.com/cloudflare/cfssl/releases/download/v1.5.0/cfssljson_1.5.0_linux_amd64
+    chmod +x /usr/local/bin/cfssljson
 else
-    sudo apt install -y nfs-common
+    apt install -y nfs-common
 fi
 
 cat <<EOF >> /home/vagrant/.bashrc
-(cd ${SOURCE} ; sudo su)
+(cd ${SOURCE} ; sudo su) && exit
 EOF
 
 cat <<EOF >> /root/.bashrc
 alias k=kubectl
 export NET_PLUGIN=cni
-export ETCD_HOST=192.168.56.10
 export ALLOW_PRIVILEGED=1
-export API_HOST=192.168.56.10
+export ETCD_HOST=${MASTER_IP}
+export API_HOST=${MASTER_IP}
+export ADVERTISE_ADDRESS=${MASTER_IP}
+export API_CORS_ALLOWED_ORIGINS=".*"
 export KUBE_CONTROLLERS="*,bootstrapsigner,tokencleaner"
 export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
 export WHAT="cmd/kube-proxy cmd/kube-apiserver cmd/kube-controller-manager cmd/kubelet cmd/kubeadm cmd/kube-scheduler cmd/kubectl cmd/kubectl-convert"
+export POD_CIDR="${POD_CIDR}"
+export CLUSTER_CIDR="192.0.0.0/8"
+export SERVICE_CLUSTER_IP_RANGE="192.169.0.0/16"
+export FIRST_SERVICE_CLUSTER_IP="192.169.0.1"
+export KUBE_DNS_SERVER_IP="192.169.1.1"
 export GOPATH=/vagrant/github.com/kubernetes/kubernetes
 export GOROOT=/opt/go
 export PATH=/opt/go/bin:${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
@@ -86,12 +127,21 @@ sudo() {
 }
 
 start() {
-    HOSTNAME_OVERRIDE=master-node ./hack/local-up-cluster.sh -O
+    rm -rf /var/run/kubernetes/* ||:
+    KUBELET_HOST=0.0.0.0 HOSTNAME_OVERRIDE=${MASTER_NAME} ./hack/local-up-cluster.sh -O
+}
+
+network() {
+  curl -Ls https://docs.projectcalico.org/manifests/calico.yaml | kubectl apply -f -
 }
 
 join() {
-    # TODO master branch only, some back-port is missing here
-    cp -f /tmp/\$(ls /tmp -t | grep "local-up-cluster.sh." | head -1)/* /var/run/kubernetes
+    last=\$(ls /tmp -t | grep "local-up-cluster.sh." | head -1)
+    if [[ "\${last}" ]]; then
+      cp -rf /tmp/\${last}/* /var/run/kubernetes
+    else
+      cp -rf /tmp/kube* /var/run/kubernetes
+    fi
 
     cat <<EOFI | kubectl apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
@@ -152,7 +202,7 @@ apiVersion: v1
 clusters:
 - cluster:
     certificate-authority-data: \$(base64 -iw0 /var/run/kubernetes/server-ca.crt)
-    server: https://192.168.56.10:6443/
+    server: https://${MASTER_IP}:6443/
   name: ''
 contexts: []
 current-context: ''
@@ -163,7 +213,7 @@ EOFI
     kubectl delete cm -n kube-public cluster-info |:
     kubectl create cm -n kube-public --from-file=/var/run/kubernetes/kubeconfig cluster-info
 
-    sed "s/master-node/''/" /var/run/kubernetes/kube-proxy.yaml > /var/run/kubernetes/config.conf
+    sed "s/${MASTER_NAME}/''/" /var/run/kubernetes/kube-proxy.yaml > /var/run/kubernetes/config.conf
     kubectl delete cm -n kube-system kube-proxy |:
     kubectl create cm -n kube-system --from-file=/var/run/kubernetes/config.conf kube-proxy
 
@@ -187,7 +237,7 @@ kind: ClusterConfiguration
 kubernetesVersion: ${KUBE_VERSION}
 networking:
   dnsDomain: cluster.local
-  serviceSubnet: 10.0.0.1/12
+  serviceSubnet: \${SERVICE_CLUSTER_IP_RANGE}
 scheduler: {}
 EOFI
     kubectl delete cm -n kube-system kubeadm-config |:
@@ -260,22 +310,38 @@ EOFI
     chmod -R a+rw /var/run/kubernetes/*
 }
 
-network() {
-  curl -Ls https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml | sed "s/244/88/" | kubectl apply -f -
-}
-
 member() {
-  mkdir -p /var/run/kubernetes ; mount | grep /var/run/kubernetes 1>/dev/null || mount 192.168.56.10:/var/run/kubernetes /var/run/kubernetes
+  mkdir -p /var/run/kubernetes ; mount | grep /var/run/kubernetes 1>/dev/null || mount ${MASTER_IP}:/var/run/kubernetes /var/run/kubernetes
 
-  cat <<EOFI > /etc/systemd/system/kubelet.service
+  cat <<EOFI > /etc/systemd/system/kube-proxy.service
 [Unit]
 Wants=network-online.target
 After=network-online.target
 
 [Service]
+ExecStart=/vagrant/github.com/kubernetes/kubernetes/_output/local/bin/linux/amd64/kube-proxy \\
+--v=3 \\
+--config=/var/run/kubernetes/config.conf \\
+--master="https://${MASTER_IP}:6443"
+Restart=on-failure
+StartLimitInterval=0
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOFI
+
+  cat <<EOFI > /etc/systemd/system/kubelet.service
+[Unit]
+Wants=kube-proxy
+After=kube-proxy
+
+[Service]
 ExecStart=/vagrant/github.com/kubernetes/kubernetes/_output/local/bin/linux/amd64/kubelet \\
+--address=0.0.0.0 \\
 --hostname-override=$(hostname) \\
---pod-cidr 10.88.${NODE}.0/16 \\
+--pod-cidr=${POD_CIDR} \\
+--node-ip="192.168.56.1${NODE}" \\
 --register-node=true \\
 --v=3 \\
 --bootstrap-kubeconfig=/var/run/kubernetes/admin.kubeconfig \\
@@ -292,6 +358,8 @@ WantedBy=multi-user.target
 EOFI
 
   systemctl daemon-reload
+
+  systemctl restart kube-proxy
 
   sh /var/run/kubernetes/join.sh
 }
