@@ -186,20 +186,13 @@ EOFI
 apiServer:
   timeoutForControlPlane: 2m0s
 apiVersion: kubeadm.k8s.io/v1beta3
-certificatesDir: /etc/kubernetes/pki
 clusterName: local-up-cluster
-controllerManager: {}
-dns: {}
-etcd:
-  local:
-    dataDir: /var/lib/etcd
 imageRepository: registry.k8s.io
 kind: ClusterConfiguration
 kubernetesVersion: ${KUBE_VERSION}
 networking:
   dnsDomain: cluster.local
   serviceSubnet: \${SERVICE_CLUSTER_IP_RANGE}
-scheduler: {}
 EOFI
     kubectl delete cm -n kube-system kubeadm-config |:
     kubectl create cm -n kube-system --from-file=/var/run/kubernetes/ClusterConfiguration kubeadm-config
