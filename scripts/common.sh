@@ -186,6 +186,7 @@ EOFI
 apiServer:
   timeoutForControlPlane: 2m0s
 apiVersion: kubeadm.k8s.io/v1beta3
+certificatesDir: /etc/kubernetes/pki
 clusterName: local-up-cluster
 imageRepository: registry.k8s.io
 kind: ClusterConfiguration
