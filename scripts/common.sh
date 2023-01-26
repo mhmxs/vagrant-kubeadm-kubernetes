@@ -315,6 +315,8 @@ EOFI
 
   systemctl restart kube-proxy
 
+  rm -rf /etc/kubernetes
+
   sh /var/run/kubernetes/join.sh
 }
 
