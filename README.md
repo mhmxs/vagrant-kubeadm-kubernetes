@@ -40,6 +40,7 @@ vagrant up
 ## Start Kubernetes,
 
 Initial step is to apply this patch on your Kubernetes source:
+Work on progress: https://github.com/kubernetes/kubernetes/issues/115319
 
 ```diff
 diff --git a/hack/local-up-cluster.sh b/hack/local-up-cluster.sh
