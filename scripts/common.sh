@@ -75,6 +75,7 @@ export API_HOST=${MASTER_IP}
 export ADVERTISE_ADDRESS=${MASTER_IP}
 export API_CORS_ALLOWED_ORIGINS=".*"
 export KUBE_CONTROLLERS="*,bootstrapsigner,tokencleaner"
+export KUBE_ENABLE_NODELOCAL_DNS=true
 export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
 export WHAT="cmd/kube-proxy cmd/kube-apiserver cmd/kube-controller-manager cmd/kubelet cmd/kubeadm cmd/kube-scheduler cmd/kubectl cmd/kubectl-convert"
 export POD_CIDR="10.88.0.0/16"
