@@ -9,6 +9,7 @@ set -euxo pipefail
 : ${MASTER_IP? required}
 : ${MASTER_NAME? required}
 : ${NODE_IP? required}
+: ${NODE_NAME? required}
 
 apt update -y
 apt install -y apt-transport-https ca-certificates curl socat conntrack runc net-tools
@@ -34,14 +35,14 @@ net.bridge.bridge-nf-call-ip6tables = 1
 EOF
 sysctl --system
 
-wget https://github.com/containerd/containerd/releases/download/v1.6.8/containerd-1.6.8-linux-amd64.tar.gz
+curl -LO https://github.com/containerd/containerd/releases/download/v1.6.8/containerd-1.6.8-linux-amd64.tar.gz
 tar Czxvf /usr/local containerd-1.6.8-linux-amd64.tar.gz
-wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
-mv containerd.service /usr/lib/systemd/system/
+curl -LO https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+mv containerd.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now containerd
 
-wget https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.26.0/crictl-v1.26.0-linux-amd64.tar.gz
+curl -LO https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.26.0/crictl-v1.26.0-linux-amd64.tar.gz
 tar zxvf crictl-v1.26.0-linux-amd64.tar.gz -C /usr/local/bin
 
 if [[ $(hostname) = ${MASTER_NAME} ]]; then
@@ -68,7 +69,10 @@ EOF
 
 cat <<EOF >> /root/.bashrc
 alias k=kubectl
-export NET_PLUGIN=cni
+
+# export NET_PLUGIN=cni
+export CNI_CONFIG_DIR=/tmp
+export LOG_LEVEL=4
 export ALLOW_PRIVILEGED=1
 export ETCD_HOST=${MASTER_IP}
 export API_HOST=${MASTER_IP}
@@ -78,8 +82,11 @@ export KUBE_CONTROLLERS="*,bootstrapsigner,tokencleaner"
 export KUBE_ENABLE_NODELOCAL_DNS=true
 export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
 export WHAT="cmd/kube-proxy cmd/kube-apiserver cmd/kube-controller-manager cmd/kubelet cmd/kubeadm cmd/kube-scheduler cmd/kubectl cmd/kubectl-convert"
-export POD_CIDR="10.88.0.0/16"
-export SERVICE_CLUSTER_IP_RANGE="10.0.0.0/24"
+export POD_CIDR="172.16.1.0/16"
+export CLUSTER_CIDR="172.0.0.0/8"
+export SERVICE_CLUSTER_IP_RANGE="172.17.0.0/18"
+export FIRST_SERVICE_CLUSTER_IP="172.17.0.1"
+export KUBE_DNS_SERVER_IP="172.17.63.254"
 export GOPATH=/vagrant/github.com/kubernetes/kubernetes
 export GOROOT=/opt/go
 export PATH=/opt/go/bin:${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
@@ -88,13 +95,32 @@ sudo() {
     \$@
 }
 
+alias install-docker="apt install -y docker.io && systemctl start docker && systemctl disable docker"
+
 start() {
     rm -rf /var/run/kubernetes/* ||:
-    KUBELET_HOST=0.0.0.0 HOSTNAME_OVERRIDE=${MASTER_NAME} ./hack/local-up-cluster.sh -O
+    KUBELET_HOST=${MASTER_IP} HOSTNAME_OVERRIDE=${MASTER_NAME} ./hack/local-up-cluster.sh -O
 }
 
-network() {
-  curl -Ls https://docs.projectcalico.org/manifests/calico.yaml | kubectl apply -f -
+alias network=calico
+
+falnnel() {
+  kubectl patch node ${NODE_NAME} -p '{"spec":{"podCIDR":"'\${POD_CIDR}'"}}'
+  curl -Ls https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml | \
+    sed 's/- --ip-masq/- --ip-masq\n        - --iface=enp0s8/' | \
+    sed 's|10.244.0.0/16|'\${POD_CIDR}'|' | \
+    kubectl apply -f -
+}
+
+alias calicoctl="kubectl exec -i -n kube-system calicoctl -- /calicoctl"
+
+calico() {
+  curl -Ls https://docs.projectcalico.org/manifests/calico.yaml | \
+    sed 's/value: "Always"/value: "Never"/' | \
+    sed 's/# - name: CALICO_IPV4POOL_CIDR/- name: CALICO_IPV4POOL_CIDR/' | \
+    sed 's|#   value: "192.168.0.0/16"|  value: "'\${POD_CIDR}'"|' | \
+    kubectl apply -f -
+  kubectl apply -f https://docs.projectcalico.org/manifests/calicoctl.yaml
 }
 
 join() {
@@ -175,7 +201,7 @@ EOFI
     kubectl delete cm -n kube-public cluster-info |:
     kubectl create cm -n kube-public --from-file=/var/run/kubernetes/kubeconfig cluster-info
 
-    sed "s/${MASTER_NAME}/''/" /var/run/kubernetes/kube-proxy.yaml > /var/run/kubernetes/config.conf
+    cat /var/run/kubernetes/kube-proxy.yaml | sed -e "s/${MASTER_NAME}/''/" -e "s/${MASTER_IP}/${NODE_IP}/" > /var/run/kubernetes/config.conf
     kubectl delete cm -n kube-system kube-proxy |:
     kubectl create cm -n kube-system --from-file=/var/run/kubernetes/config.conf kube-proxy
 
@@ -294,7 +320,7 @@ After=kube-proxy
 
 [Service]
 ExecStart=/vagrant/github.com/kubernetes/kubernetes/_output/local/bin/linux/amd64/kubelet \\
---address=0.0.0.0 \\
+--address="${NODE_IP}" \\
 --hostname-override=$(hostname) \\
 --pod-cidr=\${POD_CIDR} \\
 --node-ip="${NODE_IP}" \\

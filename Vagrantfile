@@ -1,5 +1,5 @@
 NUM_WORKER_NODES=1
-IP_NW="192.168.56."
+IP_NW="10.0.1."
 IP_START=10
 KUBE_VERSION="1.27.0"
 SOURCE="/vagrant/github.com/kubernetes/kubernetes"
@@ -27,7 +27,8 @@ Vagrant.configure("2") do |config|
       "KUBE_VERSION" => KUBE_VERSION,
       "MASTER_IP" => IP_NW + "#{IP_START}",
       "MASTER_NAME" => "master-node",
-      "NODE_IP" => IP_NW + "#{IP_START}"
+      "NODE_IP" => IP_NW + "#{IP_START}",
+      "NODE_NAME" => "master-node"
     }
   end
 
@@ -44,7 +45,8 @@ Vagrant.configure("2") do |config|
         "KUBE_VERSION" => KUBE_VERSION,
         "MASTER_IP" => IP_NW + "#{IP_START}",
         "MASTER_NAME" => "master-node",
-        "NODE_IP" => IP_NW + "#{IP_START + i}"
+        "NODE_IP" => IP_NW + "#{IP_START + i}",
+        "NODE_NAME" => "worker-node0#{i}"
       }
     end
 
