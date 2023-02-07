@@ -99,7 +99,7 @@ iptables -t nat -D PREROUTING -i cni0 -d \${SERVICE_CLUSTER_IP_RANGE} -j DNAT --
 iptables -t nat -A PREROUTING -i cni0 -d \${SERVICE_CLUSTER_IP_RANGE} -j DNAT --to-destination 10.88.0.1
 
 mkdir -p /etc/cni/net.d
-cat <<EOF > /etc/cni/net.d/1-bridge-net.conflist
+cat <<EOFI > /etc/cni/net.d/1-bridge-net.conflist
 {
   "cniVersion": "0.4.0",
   "name": "bridge-net",
@@ -133,7 +133,7 @@ cat <<EOF > /etc/cni/net.d/1-bridge-net.conflist
     }
   ]
 }
-EOF
+EOFI
 
 sudo() {
     \$@
