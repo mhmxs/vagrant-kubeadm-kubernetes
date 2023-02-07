@@ -95,7 +95,7 @@ export GOPATH=/vagrant/github.com/kubernetes/kubernetes
 export GOROOT=/opt/go
 export PATH=/opt/go/bin:${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
 
-iptables -t nat -A PREROUTING -i cni0 -d ${SERVICE_CLUSTER_IP_RANGE} -j DNAT --to-destination 10.88.0.1
+iptables -t nat -A PREROUTING -i cni0 -d \${SERVICE_CLUSTER_IP_RANGE} -j DNAT --to-destination 10.88.0.1
 
 sudo() {
     \$@
