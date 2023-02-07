@@ -47,7 +47,8 @@ Initial step is to apply this patch on your Kubernetes source:
 Work on progress: https://github.com/kubernetes/kubernetes/issues/115319
 
 ```diff
-index 16e8ed9a1cf..8e6c81b8ffb 100755
+diff --git a/hack/local-up-cluster.sh b/hack/local-up-cluster.sh
+index 16e8ed9a1cf..dc82397bd1a 100755
 --- a/hack/local-up-cluster.sh
 +++ b/hack/local-up-cluster.sh
 @@ -574,6 +574,7 @@ EOF
@@ -58,18 +59,11 @@ index 16e8ed9a1cf..8e6c81b8ffb 100755
        --external-hostname="${EXTERNAL_HOSTNAME}" \
        --requestheader-username-headers=X-Remote-User \
        --requestheader-group-headers=X-Remote-Group \
-@@ -843,8 +844,14 @@ apiVersion: kubeproxy.config.k8s.io/v1alpha1
- kind: KubeProxyConfiguration
- clientConnection:
+@@ -845,6 +846,7 @@ clientConnection:
    kubeconfig: ${CERT_DIR}/kube-proxy.kubeconfig
-+bindAddress: ${API_HOST}
  hostnameOverride: ${HOSTNAME_OVERRIDE}
  mode: ${KUBE_PROXY_MODE}
 +clusterCIDR: ${CLUSTER_CIDR}
-+nodePortAddresses:
-+- ${API_HOST}/32
-+iptables:
-+  masqueradeAll: true
  conntrack:
  # Skip setting sysctl value "net.netfilter.nf_conntrack_max"
    maxPerCore: 0

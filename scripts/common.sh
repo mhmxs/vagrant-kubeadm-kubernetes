@@ -14,6 +14,10 @@ set -euxo pipefail
 apt update -y
 apt install -y apt-transport-https ca-certificates curl socat conntrack runc net-tools
 
+systemctl disable --now ufw
+ufw reset ||:
+apt remove -y ufw
+
 systemctl disable systemd-resolved
 systemctl stop systemd-resolved
 rm -f /etc/resolv.conf
@@ -70,26 +74,28 @@ EOF
 cat <<EOF >> /root/.bashrc
 alias k=kubectl
 
-# export NET_PLUGIN=cni
 export CNI_CONFIG_DIR=/tmp
 export LOG_LEVEL=4
 export ALLOW_PRIVILEGED=1
 export ETCD_HOST=${MASTER_IP}
 export API_HOST=${MASTER_IP}
+export API_HOST_IP=${MASTER_IP}
 export ADVERTISE_ADDRESS=${MASTER_IP}
 export API_CORS_ALLOWED_ORIGINS=".*"
 export KUBE_CONTROLLERS="*,bootstrapsigner,tokencleaner"
 export KUBE_ENABLE_NODELOCAL_DNS=true
-export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
 export WHAT="cmd/kube-proxy cmd/kube-apiserver cmd/kube-controller-manager cmd/kubelet cmd/kubeadm cmd/kube-scheduler cmd/kubectl cmd/kubectl-convert"
-export POD_CIDR="172.16.1.0/16"
+export POD_CIDR="172.16.0.0/16"
 export CLUSTER_CIDR="172.0.0.0/8"
 export SERVICE_CLUSTER_IP_RANGE="172.17.0.0/18"
 export FIRST_SERVICE_CLUSTER_IP="172.17.0.1"
 export KUBE_DNS_SERVER_IP="172.17.63.254"
+export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
 export GOPATH=/vagrant/github.com/kubernetes/kubernetes
 export GOROOT=/opt/go
 export PATH=/opt/go/bin:${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
+
+iptables -t nat -A PREROUTING -i cni0 -d ${SERVICE_CLUSTER_IP_RANGE} -j DNAT --to-destination 10.88.0.1
 
 sudo() {
     \$@
