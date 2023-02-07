@@ -129,6 +129,30 @@ calico() {
   kubectl apply -f https://docs.projectcalico.org/manifests/calicoctl.yaml
 }
 
+bgp() {
+  cat <<EOFI | kubectl apply -f -
+apiVersion: crd.projectcalico.org/v1
+kind: BGPConfiguration
+metadata:
+  name: default
+spec:
+  logSeverityScreen: Info
+  bindMode: NodeIP
+  nodeToNodeMeshEnabled: true
+  asNumber: 63400
+  serviceClusterIPs:
+  - cidr: \${SERVICE_CLUSTER_IP_RANGE}
+---
+kind: BGPPeer
+apiVersion: crd.projectcalico.org/v1
+metadata:
+  name: peer-to-peer
+spec:
+  nodeSelector: all()
+  peerSelector: all()
+EOFI
+}
+
 join() {
     last=\$(ls /tmp -t | grep "local-up-cluster.sh." | head -1)
     if [[ "\${last}" ]]; then
