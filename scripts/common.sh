@@ -95,7 +95,45 @@ export GOPATH=/vagrant/github.com/kubernetes/kubernetes
 export GOROOT=/opt/go
 export PATH=/opt/go/bin:${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
 
+iptables -t nat -D PREROUTING -i cni0 -d \${SERVICE_CLUSTER_IP_RANGE} -j DNAT --to-destination 10.88.0.1 &>/dev/null ||:
 iptables -t nat -A PREROUTING -i cni0 -d \${SERVICE_CLUSTER_IP_RANGE} -j DNAT --to-destination 10.88.0.1
+
+mkdir -p /etc/cni/net.d
+cat <<EOF > /etc/cni/net.d/1-bridge-net.conflist
+{
+  "cniVersion": "0.4.0",
+  "name": "bridge-net",
+  "plugins": [
+    {
+      "type": "bridge",
+      "bridge": "cni0",
+      "isGateway": true,
+      "ipMasq": true,
+      "promiscMode": true,
+      "ipam": {
+        "type": "host-local",
+        "ranges": [
+          [{
+            "subnet": "\${POD_CIDR}"
+          }]
+        ],
+        "routes": [
+          { "dst": "0.0.0.0/0" }
+        ]
+      }
+    },
+    {
+      "type": "portmap",
+      "snat": true,
+      "capabilities": {"portMappings": true}
+    },
+    {
+      "type": "bandwidth",
+      "capabilities": {"bandwidth": true}
+    }
+  ]
+}
+EOF
 
 sudo() {
     \$@
