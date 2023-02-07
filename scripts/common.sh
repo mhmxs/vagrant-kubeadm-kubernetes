@@ -54,6 +54,7 @@ if [[ $(hostname) = ${MASTER_NAME} ]]; then
     apt install -y nfs-kernel-server make
     cat <<EOF > /etc/exports
 /var/run/kubernetes  ${MASTER_IP}/24(rw,sync,no_subtree_check,all_squash,insecure)
+/opt  ${MASTER_IP}/24(rw,sync,no_subtree_check,all_squash,insecure)
 EOF
     exportfs -a
     systemctl restart nfs-kernel-server
@@ -167,7 +168,7 @@ calico() {
   kubectl apply -f https://docs.projectcalico.org/manifests/calicoctl.yaml
 }
 
-bgp() {
+install-bgp() {
   cat <<EOFI | kubectl apply -f -
 apiVersion: crd.projectcalico.org/v1
 kind: BGPConfiguration
@@ -362,6 +363,7 @@ EOFI
 
 member() {
   mkdir -p /var/run/kubernetes ; mount | grep /var/run/kubernetes 1>/dev/null || mount ${MASTER_IP}:/var/run/kubernetes /var/run/kubernetes
+  mkdir -p /opt/cni ; mount | grep /opt/cni 1>/dev/null || mount ${MASTER_IP}:/opt/cni /opt/cni
 
   cat <<EOFI > /etc/systemd/system/kube-proxy.service
 [Unit]
