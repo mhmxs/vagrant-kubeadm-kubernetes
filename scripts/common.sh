@@ -107,15 +107,11 @@ start() {
     KUBELET_HOST=${MASTER_IP} HOSTNAME_OVERRIDE=${MASTER_NAME} ./hack/local-up-cluster.sh -O
 }
 
-fix-service() {
-  ip addr add \${SERVICE_CLUSTER_IP_RANGE} dev lo
-}
-
 alias network=calico
 
-alias calicoctl="kubectl exec -i -n kube-system calicoctl -- /calicoctl"
-
 calico() {
+  ip addr add \${SERVICE_CLUSTER_IP_RANGE} dev lo
+
   kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/tigera-operator.yaml
   cat <<EOFI | kubectl apply -f -
 # For more information, see: https://projectcalico.docs.tigera.io/master/reference/installation/api#operator.tigera.io/v1.Installation
@@ -141,8 +137,6 @@ metadata:
   name: default 
 spec: {}
 EOFI
-
-  fix-service
 }
 
 config() {
@@ -362,12 +356,62 @@ EOFI
 
   systemctl daemon-reload
   systemctl restart kube-proxy
-
-  fix-service
   
   rm -rf /etc/kubernetes
 
   sh /var/run/kubernetes/join.sh
+}
+
+debug() {
+  cat <<EOFI | kubectl apply -f -
+apiVersion: apps/v1
+kind: DaemonSet 
+metadata:
+  labels:
+    app: debug
+  name: debug
+spec:
+  selector:
+    matchLabels:
+      app: debug
+  template:
+    metadata:
+      labels:
+        app: debug
+    spec:
+      # hostNetwork: true
+      containers:
+      - image: nixery.dev/shell/unixtools.ping/dig/etcd/iproute2/mtr/curl
+        command:
+        - sleep
+        - infinity
+        name: debug
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /tmp/readiness
+EOFI
+}
+
+nginx() {
+  kubectl create --image nginx nginx
+    cat <<EOFI | kubectl apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    nodePort: 31000
+    protocol: TCP
+  selector:
+    app: nginx
+EOFI
 }
 
 EOF
