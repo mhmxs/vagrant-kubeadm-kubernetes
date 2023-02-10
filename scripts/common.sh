@@ -109,7 +109,6 @@ start() {
 
 fix-service() {
   ip addr add \${SERVICE_CLUSTER_IP_RANGE} dev lo
-  ip route add dev enp0s3 \${SERVICE_CLUSTER_IP_RANGE} dev lo
 }
 
 alias network=calico
@@ -117,8 +116,6 @@ alias network=calico
 alias calicoctl="kubectl exec -i -n kube-system calicoctl -- /calicoctl"
 
 calico() {
-  fix-service
-
   kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/tigera-operator.yaml
   cat <<EOFI | kubectl apply -f -
 # For more information, see: https://projectcalico.docs.tigera.io/master/reference/installation/api#operator.tigera.io/v1.Installation
@@ -144,6 +141,8 @@ metadata:
   name: default 
 spec: {}
 EOFI
+
+  fix-service
 }
 
 config() {
@@ -367,6 +366,8 @@ EOFI
   rm -rf /etc/kubernetes
 
   sh /var/run/kubernetes/join.sh
+
+  fix-service
 }
 
 EOF
