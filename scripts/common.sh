@@ -103,6 +103,8 @@ sudo() {
 alias install-docker="apt install -y docker.io && systemctl start docker && systemctl disable docker"
 
 start() {
+    ip addr add \${SERVICE_CLUSTER_IP_RANGE} dev lo ||:
+
     rm -rf /var/run/kubernetes/* ||:
     KUBELET_HOST=${MASTER_IP} HOSTNAME_OVERRIDE=${MASTER_NAME} ./hack/local-up-cluster.sh -O
 }
@@ -110,8 +112,6 @@ start() {
 alias network=calico
 
 calico() {
-  ip addr add \${SERVICE_CLUSTER_IP_RANGE} dev lo
-
   kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/tigera-operator.yaml
   cat <<EOFI | kubectl apply -f -
 # For more information, see: https://projectcalico.docs.tigera.io/master/reference/installation/api#operator.tigera.io/v1.Installation
@@ -395,7 +395,7 @@ EOFI
 }
 
 nginx() {
-  kubectl create --image nginx nginx
+  kubectl create deploy --image nginx nginx
     cat <<EOFI | kubectl apply -f -
 apiVersion: v1
 kind: Service
