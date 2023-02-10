@@ -130,7 +130,7 @@ spec:
       kubernetes: NodeInternalIP
     ipPools:
     - blockSize: 26
-      cidr: 172.16.0.0/16
+      cidr: \${POD_CIDR}
       encapsulation: IPIP
       natOutgoing: Enabled
       nodeSelector: all()
