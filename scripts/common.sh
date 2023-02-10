@@ -363,11 +363,11 @@ EOFI
   systemctl daemon-reload
   systemctl restart kube-proxy
 
+  fix-service
+  
   rm -rf /etc/kubernetes
 
   sh /var/run/kubernetes/join.sh
-
-  fix-service
 }
 
 EOF
