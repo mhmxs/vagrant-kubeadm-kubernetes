@@ -54,7 +54,6 @@ if [[ $(hostname) = ${MASTER_NAME} ]]; then
     apt install -y nfs-kernel-server make
     cat <<EOF > /etc/exports
 /var/run/kubernetes  ${MASTER_IP}/24(rw,sync,no_subtree_check,all_squash,insecure)
-/opt  ${MASTER_IP}/24(rw,sync,no_subtree_check,all_squash,insecure)
 EOF
     exportfs -a
     systemctl restart nfs-kernel-server
@@ -79,6 +78,7 @@ export CNI_CONFIG_DIR=/tmp
 export LOG_LEVEL=4
 export ALLOW_PRIVILEGED=1
 export ETCD_HOST=${MASTER_IP}
+export API_SECURE_PORT=443
 export API_HOST=${MASTER_IP}
 export API_HOST_IP=${MASTER_IP}
 export ADVERTISE_ADDRESS=${MASTER_IP}
@@ -88,53 +88,13 @@ export KUBE_ENABLE_NODELOCAL_DNS=true
 export WHAT="cmd/kube-proxy cmd/kube-apiserver cmd/kube-controller-manager cmd/kubelet cmd/kubeadm cmd/kube-scheduler cmd/kubectl cmd/kubectl-convert"
 export POD_CIDR="172.16.0.0/16"
 export CLUSTER_CIDR="172.0.0.0/8"
-export SERVICE_CLUSTER_IP_RANGE="172.17.0.0/18"
+export SERVICE_CLUSTER_IP_RANGE="172.17.0.0/16"
 export FIRST_SERVICE_CLUSTER_IP="172.17.0.1"
 export KUBE_DNS_SERVER_IP="172.17.63.254"
 export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
 export GOPATH=/vagrant/github.com/kubernetes/kubernetes
 export GOROOT=/opt/go
 export PATH=/opt/go/bin:${SOURCE}/third_party:${SOURCE}/third_party/etcd:${SOURCE}/_output/local/bin/linux/amd64:${PATH}
-
-iptables -t nat -D PREROUTING -i cni0 -d \${SERVICE_CLUSTER_IP_RANGE} -j DNAT --to-destination 10.88.0.1 &>/dev/null ||:
-iptables -t nat -A PREROUTING -i cni0 -d \${SERVICE_CLUSTER_IP_RANGE} -j DNAT --to-destination 10.88.0.1
-
-mkdir -p /etc/cni/net.d
-cat <<EOFI > /etc/cni/net.d/1-bridge-net.conflist
-{
-  "cniVersion": "0.4.0",
-  "name": "bridge-net",
-  "plugins": [
-    {
-      "type": "bridge",
-      "bridge": "cni0",
-      "isGateway": true,
-      "ipMasq": true,
-      "promiscMode": true,
-      "ipam": {
-        "type": "host-local",
-        "ranges": [
-          [{
-            "subnet": "\${POD_CIDR}"
-          }]
-        ],
-        "routes": [
-          { "dst": "0.0.0.0/0" }
-        ]
-      }
-    },
-    {
-      "type": "portmap",
-      "snat": true,
-      "capabilities": {"portMappings": true}
-    },
-    {
-      "type": "bandwidth",
-      "capabilities": {"bandwidth": true}
-    }
-  ]
-}
-EOFI
 
 sudo() {
     \$@
@@ -149,50 +109,41 @@ start() {
 
 alias network=calico
 
-falnnel() {
-  kubectl patch node ${NODE_NAME} -p '{"spec":{"podCIDR":"'\${POD_CIDR}'"}}'
-  curl -Ls https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml | \
-    sed 's/- --ip-masq/- --ip-masq\n        - --iface=enp0s8/' | \
-    sed 's|10.244.0.0/16|'\${POD_CIDR}'|' | \
-    kubectl apply -f -
-}
-
 alias calicoctl="kubectl exec -i -n kube-system calicoctl -- /calicoctl"
 
 calico() {
-  curl -Ls https://docs.projectcalico.org/manifests/calico.yaml | \
-    sed 's/value: "Always"/value: "Never"/' | \
-    sed 's/# - name: CALICO_IPV4POOL_CIDR/- name: CALICO_IPV4POOL_CIDR/' | \
-    sed 's|#   value: "192.168.0.0/16"|  value: "'\${POD_CIDR}'"|' | \
-    kubectl apply -f -
-  kubectl apply -f https://docs.projectcalico.org/manifests/calicoctl.yaml
-}
+  kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/tigera-operator.yaml
 
-install-bgp() {
+  ip addr add \${SERVICE_CLUSTER_IP_RANGE} dev lo
+  ip route add dev enp0s3 \${SERVICE_CLUSTER_IP_RANGE} dev lo
+
   cat <<EOFI | kubectl apply -f -
-apiVersion: crd.projectcalico.org/v1
-kind: BGPConfiguration
+# For more information, see: https://projectcalico.docs.tigera.io/master/reference/installation/api#operator.tigera.io/v1.Installation
+apiVersion: operator.tigera.io/v1
+kind: Installation
 metadata:
   name: default
 spec:
-  logSeverityScreen: Info
-  bindMode: NodeIP
-  nodeToNodeMeshEnabled: true
-  asNumber: 63400
-  serviceClusterIPs:
-  - cidr: \${SERVICE_CLUSTER_IP_RANGE}
+  calicoNetwork:
+    bgp: Enabled
+    nodeAddressAutodetectionV4:
+      kubernetes: NodeInternalIP
+    ipPools:
+    - blockSize: 26
+      cidr: 172.16.0.0/16
+      encapsulation: IPIP
+      natOutgoing: Enabled
+      nodeSelector: all()
 ---
-kind: BGPPeer
-apiVersion: crd.projectcalico.org/v1
-metadata:
-  name: peer-to-peer
-spec:
-  nodeSelector: all()
-  peerSelector: all()
+apiVersion: operator.tigera.io/v1
+kind: APIServer 
+metadata: 
+  name: default 
+spec: {}
 EOFI
 }
 
-join() {
+config() {
     last=\$(ls /tmp -t | grep "local-up-cluster.sh." | head -1)
     if [[ "\${last}" ]]; then
       cp -rf /tmp/\${last}/* /var/run/kubernetes
@@ -259,7 +210,7 @@ apiVersion: v1
 clusters:
 - cluster:
     certificate-authority-data: \$(base64 -iw0 /var/run/kubernetes/server-ca.crt)
-    server: https://${MASTER_IP}:6443/
+    server: https://${MASTER_IP}:443/
   name: ''
 contexts: []
 current-context: ''
@@ -289,6 +240,7 @@ kind: ClusterConfiguration
 kubernetesVersion: ${KUBE_VERSION}
 networking:
   dnsDomain: cluster.local
+  podSubnet: \${POD_CIDR}
   serviceSubnet: \${SERVICE_CLUSTER_IP_RANGE}
 EOFI
     kubectl delete cm -n kube-system kubeadm-config |:
@@ -363,25 +315,8 @@ EOFI
 
 member() {
   mkdir -p /var/run/kubernetes ; mount | grep /var/run/kubernetes 1>/dev/null || mount ${MASTER_IP}:/var/run/kubernetes /var/run/kubernetes
-  mkdir -p /opt/cni ; mount | grep /opt/cni 1>/dev/null || mount ${MASTER_IP}:/opt/cni /opt/cni
 
-  cat <<EOFI > /etc/systemd/system/kube-proxy.service
-[Unit]
-Wants=network-online.target
-After=network-online.target
-
-[Service]
-ExecStart=/vagrant/github.com/kubernetes/kubernetes/_output/local/bin/linux/amd64/kube-proxy \\
---v=3 \\
---config=/var/run/kubernetes/config.conf \\
---master="https://${MASTER_IP}:6443"
-Restart=on-failure
-StartLimitInterval=0
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOFI
+  iptables -t nat -A PREROUTING -d \${SERVICE_CLUSTER_IP_RANGE} -j DNAT --to-destination 10.0.1.10
 
   cat <<EOFI > /etc/systemd/system/kubelet.service
 [Unit]
@@ -408,10 +343,6 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 EOFI
-
-  systemctl daemon-reload
-
-  systemctl restart kube-proxy
 
   rm -rf /etc/kubernetes
 

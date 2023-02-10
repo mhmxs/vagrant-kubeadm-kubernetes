@@ -85,6 +85,13 @@ TMPDIR=/tmp make all
 start
 ```
 
+## Generate cluster config,
+
+```shell
+vagrant ssh master
+config
+```
+
 ## Start CNI plugin,
 
 This is a manual step at the moment, execute once pre cluster.
@@ -92,13 +99,6 @@ This is a manual step at the moment, execute once pre cluster.
 ```shell
 vagrant ssh master
 network
-```
-
-## Generate Join config,
-
-```shell
-vagrant ssh master
-join
 ```
 
 ## Join a member,
