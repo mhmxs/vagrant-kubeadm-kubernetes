@@ -107,16 +107,19 @@ start() {
     KUBELET_HOST=${MASTER_IP} HOSTNAME_OVERRIDE=${MASTER_NAME} ./hack/local-up-cluster.sh -O
 }
 
+fix-service() {
+  ip addr add \${SERVICE_CLUSTER_IP_RANGE} dev lo
+  ip route add dev enp0s3 \${SERVICE_CLUSTER_IP_RANGE} dev lo
+}
+
 alias network=calico
 
 alias calicoctl="kubectl exec -i -n kube-system calicoctl -- /calicoctl"
 
 calico() {
+  fix-service
+
   kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/tigera-operator.yaml
-
-  ip addr add \${SERVICE_CLUSTER_IP_RANGE} dev lo
-  ip route add dev enp0s3 \${SERVICE_CLUSTER_IP_RANGE} dev lo
-
   cat <<EOFI | kubectl apply -f -
 # For more information, see: https://projectcalico.docs.tigera.io/master/reference/installation/api#operator.tigera.io/v1.Installation
 apiVersion: operator.tigera.io/v1
@@ -210,7 +213,7 @@ apiVersion: v1
 clusters:
 - cluster:
     certificate-authority-data: \$(base64 -iw0 /var/run/kubernetes/server-ca.crt)
-    server: https://${MASTER_IP}:443/
+    server: https://${MASTER_IP}:\${API_SECURE_PORT}/
   name: ''
 contexts: []
 current-context: ''
@@ -316,12 +319,10 @@ EOFI
 member() {
   mkdir -p /var/run/kubernetes ; mount | grep /var/run/kubernetes 1>/dev/null || mount ${MASTER_IP}:/var/run/kubernetes /var/run/kubernetes
 
-  iptables -t nat -A PREROUTING -d \${SERVICE_CLUSTER_IP_RANGE} -j DNAT --to-destination 10.0.1.10
-
   cat <<EOFI > /etc/systemd/system/kubelet.service
 [Unit]
-Wants=kube-proxy
-After=kube-proxy
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 ExecStart=/vagrant/github.com/kubernetes/kubernetes/_output/local/bin/linux/amd64/kubelet \\
@@ -343,6 +344,25 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 EOFI
+
+  cat <<EOFI > /etc/systemd/system/kube-proxy.service
+[Unit]
+Wants=network-online.target
+After=network-online.target
+[Service]
+ExecStart=/vagrant/github.com/kubernetes/kubernetes/_output/local/bin/linux/amd64/kube-proxy \\
+--v=3 \\
+--config=/var/run/kubernetes/config.conf \\
+--master="https://${MASTER_IP}:\${API_SECURE_PORT}"
+Restart=on-failure
+StartLimitInterval=0
+RestartSec=10
+[Install]
+WantedBy=multi-user.target
+EOFI
+
+  systemctl daemon-reload
+  systemctl restart kube-proxy
 
   rm -rf /etc/kubernetes
 
