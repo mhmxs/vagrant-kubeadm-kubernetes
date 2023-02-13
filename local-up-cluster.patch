@@ -1,24 +1,16 @@
 diff --git a/hack/local-up-cluster.sh b/hack/local-up-cluster.sh
-index 20355a5074d..2426955706f 100755
+index 16e8ed9a1cf..dc82397bd1a 100755
 --- a/hack/local-up-cluster.sh
 +++ b/hack/local-up-cluster.sh
-@@ -36,6 +36,7 @@ KUBELET_IMAGE=${KUBELET_IMAGE:-""}
- FAIL_SWAP_ON=${FAIL_SWAP_ON:-"false"}
- # Name of the dns addon, eg: "kube-dns" or "coredns"
- DNS_ADDON=${DNS_ADDON:-"coredns"}
-+POD_CIDR=${POD_CIDR:-10.88.0.0/16}
- CLUSTER_CIDR=${CLUSTER_CIDR:-10.1.0.0/16}
- SERVICE_CLUSTER_IP_RANGE=${SERVICE_CLUSTER_IP_RANGE:-10.0.0.0/24}
- FIRST_SERVICE_CLUSTER_IP=${FIRST_SERVICE_CLUSTER_IP:-10.0.0.1}
-@@ -547,6 +548,7 @@ EOF
-       "${node_port_range}" \
-       --v="${LOG_LEVEL}" \
-       --vmodule="${LOG_SPEC}" \
+@@ -574,6 +574,7 @@ EOF
+       --etcd-servers="http://${ETCD_HOST}:${ETCD_PORT}" \
+       --service-cluster-ip-range="${SERVICE_CLUSTER_IP_RANGE}" \
+       --feature-gates="${FEATURE_GATES}" \
 +      --enable-bootstrap-token-auth \
-       --audit-policy-file="${AUDIT_POLICY_FILE}" \
-       --audit-log-path="${LOG_DIR}/kube-apiserver-audit.log" \
-       --authorization-webhook-config-file="${AUTHORIZATION_WEBHOOK_CONFIG_FILE}" \
-@@ -844,6 +846,7 @@ clientConnection:
+       --external-hostname="${EXTERNAL_HOSTNAME}" \
+       --requestheader-username-headers=X-Remote-User \
+       --requestheader-group-headers=X-Remote-Group \
+@@ -845,6 +846,7 @@ clientConnection:
    kubeconfig: ${CERT_DIR}/kube-proxy.kubeconfig
  hostnameOverride: ${HOSTNAME_OVERRIDE}
  mode: ${KUBE_PROXY_MODE}
@@ -26,12 +18,3 @@ index 20355a5074d..2426955706f 100755
  conntrack:
  # Skip setting sysctl value "net.netfilter.nf_conntrack_max"
    maxPerCore: 0
-@@ -1063,7 +1066,7 @@ function install_cni {
-         "type": "host-local",
-         "ranges": [
-           [{
--            "subnet": "10.88.0.0/16"
-+            "subnet": "${POD_CIDR}"
-           }],
-           [{
-             "subnet": "2001:4860:4860::/64"
