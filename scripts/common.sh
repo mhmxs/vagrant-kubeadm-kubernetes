@@ -419,4 +419,8 @@ spec:
 EOFI
 }
 
+exec(){
+  kubectl exec -it \$@ -- bash
+}
+
 EOF
