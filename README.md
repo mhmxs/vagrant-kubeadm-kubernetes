@@ -125,3 +125,19 @@ vagrant up
 ```shell
 vagrant destroy -f
 ```
+
+## Trouble shooting,
+
+Deploy container with linux tools on every node.
+
+```shell
+vagrant ssh master
+debug
+```
+
+Create a service for testing, `NN` is optional, default 0.
+
+```shell
+vagrant ssh master
+NN=1 nginx
+```
