@@ -361,6 +361,8 @@ EOFI
 }
 
 debug() {
+  : \${NS:=default}
+
   cat <<EOFI | kubectl apply -f -
 apiVersion: apps/v1
 kind: DaemonSet 
@@ -368,6 +370,7 @@ metadata:
   labels:
     app: debug
   name: debug
+  namespace: \${NS}
 spec:
   selector:
     matchLabels:
@@ -394,6 +397,7 @@ EOFI
 
 nginx() {
   : \${NN:=0}
+  : \${NS:=default}
 
   kubectl create deploy --image nginx nginx\${NN}
     cat <<EOFI | kubectl apply -f -
@@ -401,6 +405,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nginx\${NN}
+  namespace: \${NS}
   labels:
     app: nginx\${NN}
 spec:
