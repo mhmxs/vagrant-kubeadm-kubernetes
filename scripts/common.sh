@@ -393,22 +393,24 @@ EOFI
 }
 
 nginx() {
-  kubectl create deploy --image nginx nginx
+  : \${NN:=0}
+
+  kubectl create deploy --image nginx nginx \${NN}
     cat <<EOFI | kubectl apply -f -
 apiVersion: v1
 kind: Service
 metadata:
-  name: nginx
+  name: nginx\${NN}
   labels:
-    app: nginx
+    app: nginx\${NN}
 spec:
   type: NodePort
   ports:
   - port: 80
-    nodePort: 31000
+    nodePort: 3100\${NN}
     protocol: TCP
   selector:
-    app: nginx
+    app: nginx\${NN}
 EOFI
 }
 
