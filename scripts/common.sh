@@ -395,7 +395,7 @@ EOFI
 nginx() {
   : \${NN:=0}
 
-  kubectl create deploy --image nginx nginx \${NN}
+  kubectl create deploy --image nginx nginx\${NN}
     cat <<EOFI | kubectl apply -f -
 apiVersion: v1
 kind: Service
