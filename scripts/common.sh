@@ -103,8 +103,6 @@ sudo() {
 alias install-docker="apt install -y docker.io && systemctl start docker && systemctl disable docker"
 
 start() {
-    ip addr add \${SERVICE_CLUSTER_IP_RANGE} dev lo ||:
-
     rm -rf /var/run/kubernetes/* ||:
     KUBELET_HOST=${MASTER_IP} HOSTNAME_OVERRIDE=${MASTER_NAME} ./hack/local-up-cluster.sh -O
 }
